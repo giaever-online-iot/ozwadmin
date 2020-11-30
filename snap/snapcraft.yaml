@@ -1,0 +1,163 @@
+name: ozwadmin
+base: core20
+version: 'V0.1.74'
+adopt-info: ozw-admin
+
+grade: devel # must be 'stable' to release into candidate/stable channels
+confinement: strict 
+
+layout:
+  /etc/fonts:
+    bind: $SNAP/etc/fonts
+  /usr/share/fonts:
+    bind: $SNAP/usr/share/fonts
+  /usr/local/share/OpenZWave:
+    bind: $SNAP/usr/local/share/OpenZWave
+
+package-repositories:
+  - type: apt
+    components: [main]
+    suites: [xenial]
+    key-id: C65D51784EDC19A871DBDBB710C56D0DE9977759
+    url: http://ppa.launchpad.net/beineri/opt-qt-5.12.8-xenial/ubuntu
+  - type: apt
+    formats: [deb]
+    components: [main]
+    suites: [xenial-security]
+    key-id: 40976EAF437D05B5
+    url: http://security.ubuntu.com/ubuntu
+
+plugs:
+  ozw-configuration:
+    interface: content
+    content: ozw-configuration
+    target: $SNAP/usr/local/share/OpenZWave/ozw-admin
+  qt-ozw-db:
+    interface: content
+    content: qt-ozw-db
+    target: $SNAP/usr/local/share/OpenZWave
+  qt-ozw-lib:
+    interface: content
+    content: qt-ozw-lib
+    target: $SNAP/usr/qt-ozw-lib
+
+slots:
+  a11y-bus:
+    interface: dbus
+    bus: session
+    name: org.a11y.Bus
+
+apps:
+  ozwadmin:
+    command: usr/local/bin/ozwadmin
+    command-chain:
+      - wrapper
+    plugs:
+      - desktop
+      - desktop-legacy
+      - x11
+      - network
+      - network-bind
+      - hardware-observe
+    slots:
+      - a11y-bus
+
+parts:
+  ozw-admin:
+    plugin: make
+    source: https://github.com/OpenZWave/ozw-admin.git
+    source-tag: ${SNAPCRAFT_PROJECT_VERSION}
+    parse-info: [scripts/ozwadmin.appdata.xml]
+    build-snaps:
+      - ozwdaemon
+    build-packages:
+      - appstream
+      - build-essential
+      - fuse
+      - joe 
+      - libcurl4-openssl-dev
+      - libgl1-mesa-dev
+      - libunwind-dev
+      - mc 
+      - mesa-common-dev
+      - pkgconf 
+      - python3.8 
+      - rapidjson-dev 
+      - qt512-meta-minimal
+      - libqt5remoteobjects5-dev
+      - libqt5serialport5-dev
+      - libqt5svg5-dev
+      - libqt5websockets5-dev
+    stage-packages:
+      - libdouble-conversion3
+      - libfreetype6
+      - libgl1
+      - libglvnd0
+      - libglx0
+      - libgraphite2-3
+      - libharfbuzz0b
+      - libicu66
+      - libpcre2-16-0
+      - libpng16-16
+      - libqt5core5a
+      - libqt5gui5
+      - libqt5network5
+      - libqt5serialport5
+      - libqt5svg5
+      - libqt5widgets5
+      - libqt5xml5
+      - libx11-6
+      - libxau6
+      - libxcb1
+      - libxdmcp6
+      - libgl1-mesa-dri
+      - mesa-utils
+    override-build: |
+      cp ${SNAPCRAFT_PART_BUILD}/scripts/ozwadmin.* "${SNAPCRAFT_PART_INSTALL}"
+      #sed -i -E "s#^Exec=(.+)#Exec=usr/local/bin/ozwadmin#" "${SNAPCRAFT_PART_INSTALL}/ozwadmin.desktop"
+      sed -i '$ d' "${SNAPCRAFT_PART_INSTALL}/ozwadmin.desktop"
+      if [ -f "Makefile" ]; then
+        echo "Clean $SNAPCRAFT_PART_BUILD"
+        qmake -r
+        make distclean
+      fi
+
+      # Lets go dummy to mimic ozw-admin's expected directory layout
+      OZWD_SNAP_PATH="/snap/ozwdaemon/current/"
+
+      DUMMY_DIR="${HOME}/dummy"
+      rm -rf "${DUMMY_DIR}"
+
+      mkdir -p "${DUMMY_DIR}/lib"
+      QTOZW_LIB_PATH="$(dirname $(find ${OZWD_SNAP_PATH} -name libqt-openzwave.so -print0 -quit))"
+      ln -sf "$QTOZW_LIB_PATH" "${DUMMY_DIR}/lib/qt-openzwave"
+
+      mkdir -p "${DUMMY_DIR}/include"
+      QTOZW_INCLUDE_PATH="$(dirname $(find ${OZWD_SNAP_PATH} -name qtopenzwave.h -print0 -quit))"
+      ln -sf "$QTOZW_INCLUDE_PATH" "${DUMMY_DIR}/include/qt-openzwave"
+
+      mkdir "${DUMMY_DIR}/lib/qt-openzwavedatabase"
+      QTOZW_DB_PATH="$(find ${OZWD_SNAP_PATH} -name qt-openzwavedatabase.rcc -print0 -quit)"
+      ln -sf "$QTOZW_DB_PATH" "${DUMMY_DIR}/lib/qt-openzwavedatabase/"
+
+      # Dummy life over, lets link OpenZWave files
+      OZW_LIB_PATH="$(dirname $(find ${OZWD_SNAP_PATH} -name libopenzwave.so -print0 -quit))"
+      OZW_INCLUDE_PATH="$(dirname $(find ${OZWD_SNAP_PATH} -name Manager.h -print0 -quit))"
+      OZW_DATABASE_PATH="$(dirname $(find ${OZWD_SNAP_PATH} -name manufacturer_specific.xml))"
+
+      qmake -r "CONFIG+=release" \
+          QTOZW_LIB_PATH="${DUMMY_DIR}/lib/" \
+          QTOZW_INCLUDE_PATH="${DUMMY_DIR}/include" \
+          OZW_LIB_PATH="${OZW_LIB_PATH}" \
+          OZW_INCLUDE_PATH="${OZW_INCLUDE_PATH}" \
+          OZW_DATABASE_PATH="${OZW_DATABASE_PATH}"
+          QTOZW_LIB_PATH=""
+      make -j$(nproc)
+      make -j$(nproc) install INSTALL_ROOT="${SNAPCRAFT_PART_INSTALL}"
+    organize:
+      ozwadmin.png: snap/gui/ozwadmin.png
+      ozwadmin.desktop: snap/gui/ozwadmin.desktop
+  local-src:
+    plugin: dump
+    source: src/
+    source-type: local
