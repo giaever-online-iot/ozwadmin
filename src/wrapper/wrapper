@@ -1,0 +1,32 @@
+#!/usr/bin/env bash
+
+if ! snapctl is-connected qt-ozw-lib; then
+    echo "Please connect 'qt-ozw-lib'"
+    echo "$ snap connect ${SNAP_NAME}:qt-ozw-lib ozwdaemon:qt-ozw-lib"
+    exit 1
+fi
+
+if ! snapctl is-connected ozw-config; then
+    echo "Please connect 'qt-ozw-config'"
+    echo "$ snap connect ${SNAP_NAME}:ozw-config ozwdaemon:ozw-config"
+    exit 1
+fi
+
+if ! snapctl is-connected ozw-db; then
+    echo "Please connect 'ozw-db'"
+    echo "$ snap connect ${SNAP_NAME}:ozw-config ozwdaemon:ozw-db"
+    exit 1
+fi
+
+LIB_QT_EXTRA="$(dirname $(find ${SNAP}/usr/lib -name libQt5Svg.so* -print -quit))"
+LIB_QT_OZW="$(dirname $(find ${SNAP}/usr/qt-ozw-lib* -name libqt-openzwave.so -print -quit))"
+LIB_OZW="$(dirname $(find ${SNAP}/usr/qt-ozw-lib* -name libopenzwave.so -print -quit))"
+export LD_LIBRARY_PATH="${LIB_QT_OZW}:${LIB_OZW}:${LD_LIBRARY_PATH}"
+QT_PLUGIN_PATH="$(dirname $(dirname $(find "${SNAP}/usr/qt-ozw-lib" -name libqxcb.so -print -quit)))"
+export QT_PLUGIN_PATH="${QT_PLUGIN_PATH}:$(dirname $(find "${SNAP}/usr/lib" -name iconengines -print -quit))"
+export QT_QPA_PLATFORM_PLUGIN_PATH="${QT_PLUGIN_PATH}"
+export LIBGL_DRIVERS_PATH=$(find "${SNAP}" -type d -name dri -print -quit)
+
+mkdir -p --mode=0700 "${XDG_RUNTIME_DIR}"
+unset SESSION_MANAGER
+exec "$@"

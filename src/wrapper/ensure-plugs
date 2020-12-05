@@ -1,0 +1,20 @@
+#!/usr/bin/env bash
+
+ORIG_LD_LIBRARY_PATH="${LD_LIBRARY_PATH}"
+export LD_LIBRARY_PATH="$(find ${SNAP}/lib -path *PySide2/Qt* -name lib -print -quit):${LD_LIBRARY_PATH}"
+export PYTHONPATH="${SNAP}/usr/lib/python3.8"
+export LIBGL_DRIVERS_PATH=$(find "${SNAP}" -type d -name dri -print -quit)
+export QT_PLUGIN_PATH="$(dirname $(dirname $(find "${SNAP}/lib" -path *PySide2/Qt* -name libqxcb.so -print -quit)))"
+export QT_QPA_PLATFORM_PLUGIN_PATH="${QT_PLUGIN_PATH}"
+#export QT_DEBUG_PLUGINS=1
+
+$SNAP/bin/ozwadmin-splash
+
+RES=$?
+if [ ${RES} -ne 0 ]; then
+    exit ${RES}
+fi
+
+echo "$@"
+export LD_LIBRARY_PATH="${ORIG_LD_LIBRARY_PATH}"
+exec "$@"

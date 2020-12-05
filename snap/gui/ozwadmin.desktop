@@ -1,0 +1,7 @@
+[Desktop Entry]
+Name=OZWAdmin
+Comment=OpenZWave Administration Gui
+Exec=ozwadmin
+Type=Application
+Icon=${SNAP}/meta/gui/ozwadmin.png
+Categories=System;
